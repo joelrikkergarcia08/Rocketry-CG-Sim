@@ -1,0 +1,93 @@
+# Vehicle definition for the centre-of-gravity programs.
+# Values marked PLACEHOLDER are guesses to be replaced once measured.
+# All lengths in metres, masses in kg, pressures in Pa, temperatures in K.
+# Sources: "spec" = rocket-spec sheet (Nov 2026); "HCR" = HCR design sheet v1.3.10.
+
+[meta]
+name = "N2O / isopropanol piston-fed concentric-tank liquid"
+# z = 0 at the forward (top) inside face of the oxidizer tank, positive AFT.
+# Total vehicle length is 3.23 m (spec). The ox tank is 1.651 m of that; how the
+# remaining 1.58 m splits between the nose/forward section and the aft section is
+# not yet known. Guess: 1.10 m forward, 0.48 m aft.
+nose_to_tank_top = 1.10           # PLACEHOLDER (m) nose tip -> ox tank forward face
+total_length = 3.23               # spec
+
+[ox_tank]
+inner_diameter = 0.14605          # HCR: 6.000 OD, 0.125 wall (spec confirms 0.125 wall)
+length = 1.6510                   # spec: 65 in displacement
+end_shape = "flat"
+
+[fuel_tube]
+outer_diameter = 0.08001          # HCR: 3.150 in
+inner_diameter = 0.07602          # HCR: 2.993 in (spec confirms 0.079 wall)
+length = 1.8288                   # spec: 72 in
+top_gap = 0.050                   # tube top 0.05 m below ox tank top; N2O vapour enters here
+stroke = 1.6002                   # spec: 63 in displacement (fuel column / piston travel)
+
+[piston]
+# spec gives "piston + bulkhead" = 4.0 kg combined; the split is a PLACEHOLDER
+# (piston here, bulkheads under [dry]).
+mass = 1.00                       # PLACEHOLDER
+thickness = 0.030                 # PLACEHOLDER
+friction_dp = 101325.0            # 1 atm: spec N2O 44 atm vs IPA 43 atm (HCR: 15 psi)
+
+[propellants]
+ox_name = "N2O"
+ox_mass_liquid = 15.085           # spec
+ox_temperature = 287.65           # T_sat at the spec tank pressure of 44 atm (14.5 C / 58 F)
+fuel_name = "isopropanol"
+fuel_density = 786.0              # HCR
+fuel_mass = 5.708                 # spec
+
+[dry]
+# Dry mass 21.285 kg total (spec), excluding nothing: the piston above is part of it.
+# Component positions z are from the ox-tank forward face, +aft.
+components = [
+  { name = "outer tank shell",          mass = 7.50,  z = 0.8255 },  # spec; at tank mid-length
+  { name = "inner fuel tube",           mass = 2.50,  z = 0.9644 },  # spec; at tube mid-length (0.05 .. 1.879)
+  { name = "forward bulkhead",          mass = 1.50,  z = 0.0    },  # PLACEHOLDER split of the 3.0 kg bulkhead share
+  { name = "aft bulkhead",              mass = 1.50,  z = 1.651  },  # PLACEHOLDER
+  { name = "nose + recovery + avionics (lumped)", mass = 4.00,  z = -0.55 },  # PLACEHOLDER mass and position
+  { name = "engine + fins + plumbing (lumped)",   mass = 3.285, z = 1.90  },  # PLACEHOLDER mass and position (remainder to 21.285)
+]
+
+[stability]
+# Optional. Centre of pressure is held fixed at the position implied by the
+# initial margin; the programs then report margin(t) = margin0 - dCG/D.
+reference_diameter = 0.1524       # 6 in body
+initial_margin_cal = 4.16         # spec
+
+# ---------------------------------------------------------------------------
+# Program 1: constant mass flow
+# ---------------------------------------------------------------------------
+[constant_flow]
+mdot_ox = 1.9767                  # spec
+mdot_fuel = 0.79107               # spec
+dt = 0.005
+t_max = 12.5
+include_vapour = true             # isothermal saturated vapour fills the ullage
+
+# ---------------------------------------------------------------------------
+# Program 2: nitrous blowdown with piston-coupled fuel feed
+# ---------------------------------------------------------------------------
+[feed_system]
+# Hole pattern from HCR (6 x 0.152 in ox, 6 x 0.098 in fuel). Cd raised from
+# HCR's 0.45 to 0.46 so both branches reproduce the spec flows at the spec
+# pressures (both come out at 0.46 independently). Replace with real injector data.
+ox_injector   = { n_holes = 6, hole_diameter = 0.0038608, cd = 0.46 }
+fuel_injector = { n_holes = 6, hole_diameter = 0.0024892, cd = 0.46 }
+ox_feed_loss   = { dp = 162120.0, mdot = 1.9767 }   # spec: 1.6 atm at nominal flow
+fuel_feed_loss = { dp = 131722.5, mdot = 0.79107 }  # spec: 1.3 atm at nominal flow
+
+[engine]
+throat_diameter = 0.043434        # HCR: 1.710 in (not in spec; assumed unchanged)
+cstar_eff = 1085.8                # derived: 20 atm * At / 2.7653 kg/s
+thrust_coefficient = 1.2796       # derived: 3842.05 N / (20 atm * At)
+
+[blowdown]
+dt = 0.005
+t_max = 12.5
+tank_model = "equilibrium"        # "equilibrium" or "empirical"
+empirical_end_fraction = 0.70     # HCR decay constant (L); not in spec
+gas_phase_gamma = 1.27
+stop_on = "either"
